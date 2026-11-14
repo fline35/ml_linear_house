@@ -1,68 +1,46 @@
-# 🏠 Прогнозирование стоимости недвижимости
+# Прогноз цены домов
 
-Предсказание цены домов на основе характеристик объекта и района. Проект выполнен как end-to-end ML-пайплайн: EDA → preprocessing → baseline → improvements.
+Учебный ML-проект: по характеристикам дома и дате сделки предсказывается `price`. Датасет `df_train.csv` и общие модули `side_lib.py` и `visual.py` находятся в корне проекта.
 
-> Часть ноутбуков (improvement_cv.ipynb, hyperparam_tuning.ipynb) взяты в учебных целях у [andyfirez](https://github.com/andyfirez). Остальное — моё.
+`df_train.csv` — обработанный Kaggle-набор [House Price Prediction Treated Dataset](https://www.kaggle.com/datasets/aravinii/house-price-prediction-treated-dataset), продажи с мая 2014 по май 2015; holdout — последние два месяца, апрель и май 2015 года.
 
-## Данные
+## Ноутбуки
 
-- **Источник:** df_train.csv (13 603 записи)
-- **Период:** май 2014 — май 2015
-- **Целевая переменная:** price (стоимость продажи)
-- **Признаки:** 13 — площадь, кол-во спален/санузлов, качество строительства, район, наличие подвала/ремонта/вида и др.
+Запускай по порядку:
 
-## Структура проекта
-
-```
-├── side_lib.py              # Вспомогательные функции (info, VIF, оценка моделей)
-├── visual.py                # Визуализации (гистограммы, boxplot, scatter, категории)
-├── eda.ipynb                # Разведочный анализ данных
-├── baseline.ipynb           # Базовые модели без обработки признаков
-├── improvements.ipynb       # Улучшения: feature engineering, preprocessing, лог-трансформация
-├── df_train.csv             # Данные
-└── report.html              # Auto-generated EDA-отчёт (Sweetviz)
-```
-
-## Что сделано
-
-### EDA
-- Анализ пропусков и дубликатов (0 пропусков, 2 дубликата)
-- Распределения количественных и категориальных признаков
-- Phik-корреляция для смешанных типов данных
-- VIF-анализ мультиколлинеарности
-- Анализ скошенности price (skew=0.80) → логарифмирование
-
-### Baseline
-- 4 модели: LinearRegression, DecisionTree, RandomForest, LightGBM
-- TimeSeriesSplit (5 фолдов) — корректная кросс-валидация для временных данных
-- Диагностика: residual plots, feature importance, абляция признаков
-
-### Improvements
-- ColumnTransformer: StandardScaler + OneHotEncoder + passthrough
-- Feature engineering: house_size_score (комбинация размера), год продажи
-- Лог-преобразование target для линейных моделей
-- Сравнение всех моделей с улучшенным preprocessing
+1. `eda.ipynb` — знакомство с данными и графики.
+2. `baseline.ipynb` — исходные модели для сравнения.
+3. `improvements.ipynb` — временная валидация, признаки и сравнение моделей.
+4. `tuning.ipynb` — подбор параметров, проверка holdout и разбор ошибок.
 
 ## Результаты
 
-| Модель | MAE | RMSE | R² |
-|---|---|---|---|
-| LinearRegression | 78 319 | 104 610 | 0.74 |
-| DecisionTree | 105 548 | 144 187 | 0.51 |
-| RandomForest | 78 087 | 106 533 | 0.73 |
-| **LightGBM** | **74 499** | **101 764** | **0.76** |
+Ошибки указаны в долларах США. Для CV приведено среднее по пяти временным фолдам.
 
-**Лучшая модель:** LightGBM — MAE ≈ 74.5k, R² = 0.76
+| Эксперимент | MAE | RMSE | R² |
+|---|---:|---:|---:|
+| LinearRegression, dev-CV | 114 293 | 144 877 | 0,509 |
+| LightGBM по умолчанию, dev-CV | 112 142 | 143 579 | 0,518 |
+| LightGBM после подбора, dev-CV | 111 629 | 142 065 | 0,528 |
+| LightGBM после подбора, holdout, финальная модель | 119 145 | 152 277 | 0,458 |
+| ElasticNet, holdout для сравнения | 122 372 | 156 793 | 0,425 |
 
-**Ключевые признаки:** quartile_zone (район) и living_in_m2 (площадь) — их удаление сильнее всего снижает качество.
+`quartile_zone` исключён из моделей: в сравнении на LinearRegression R² на CV вырос с 0,51 до 0,75, но способ расчёта признака неизвестен, и он может содержать цены будущих периодов.
 
-## Инструменты
+Финальную модель выбрал по минимальному среднему RMSE на dev-CV. Это LightGBM после подбора: его средний RMSE ниже дефолта примерно на 1,1%; средняя парная разница по фолдам составляет 1 514 при стандартном отклонении 762. Лучший вариант выбран по тем же фолдам, поэтому оценка может быть оптимистичной. ElasticNet практически не отличается от LinearRegression: средняя парная разница RMSE составляет 78 при std 173. На holdout качество ниже, чем на CV; holdout уже использовался в ранних экспериментах, поэтому это не независимая оценка.
 
-Python, pandas, numpy, scikit-learn, LightGBM, matplotlib, seaborn, phik, statsmodels, sweetviz, missingno
+## EDA-отчёт
 
-## Как запустить
+`report.html` — сохранённый HTML-отчёт Sweetviz с автоматической сводкой по данным. В отличие от `eda.ipynb`, это готовый отчёт для просмотра, без пошагового анализа и выполнения кода. В проекте нет отдельного скрипта генерации отчёта и Sweetviz не указан в зависимостях; файл можно открыть в браузере.
+
+## Запуск
+
+Ноутбуки проверены на Python 3.13.5. Из корня проекта создай окружение и установи зависимости:
 
 ```bash
-pip install pandas numpy scikit-learn lightgbm matplotlib seaborn phik statsmodels sweetviz missingno
-jupyter notebook eda.ipynb
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+jupyter lab
 ```
+
